@@ -8,6 +8,9 @@ GROUP_LINK = "https://t.me/+lmIxMokH59czZjg1"
 PENDING_FILE = "pending.json"
 VERIFIED_FILE = "verified.json"
 
+if not TOKEN:
+    raise ValueError("🚫 BOT_TOKEN is not set! Check your Railway variables.")
+
 def load_json(file):
     if os.path.exists(file):
         with open(file, "r") as f:
@@ -29,8 +32,13 @@ async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = load_json(PENDING_FILE)
     pending[token] = {"email": email, "user_id": user_id, "username": username}
     save_json(PENDING_FILE, pending)
-    send_verification_email(email, token)
-    await update.message.reply_text("📧 A confirmation link has been sent to your email. Please check and click it.")
+    
+    try:
+        send_verification_email(email, token)
+        await update.message.reply_text("📧 A confirmation link has been sent to your email. Please check and click it.")
+    except Exception as e:
+        print(f"❌ Email sending failed: {e}")
+        await update.message.reply_text("⚠️ Failed to send email. Please try again or contact admin.")
 
 async def verified(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
