@@ -9,10 +9,9 @@ TOKEN = os.getenv("BOT_TOKEN")
 GROUP_LINK = "https://t.me/+lmIxMokH59czZjg1"
 PENDING_FILE = "pending.json"
 VERIFIED_FILE = "verified.json"
+EMAIL_LOG = "verified_emails.txt"
 
-if not TOKEN:
-    raise ValueError("🚫 BOT_TOKEN is not set! Check your Railway variables.")
-
+# Load/save functions
 def load_json(file):
     if os.path.exists(file):
         with open(file, "r") as f:
@@ -23,37 +22,57 @@ def save_json(file, data):
     with open(file, "w") as f:
         json.dump(data, f)
 
+# Start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👋 Welcome! Please send your email to continue:")
 
+# Email handler
 async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     email = update.message.text.strip()
     user_id = str(update.message.from_user.id)
-    username = update.message.from_user.username or "unknown"
-    token = secrets.token_urlsafe(16)
+    code = secrets.token_hex(3)
+
     pending = load_json(PENDING_FILE)
-    pending[token] = {"email": email, "user_id": user_id, "username": username}
+    pending[user_id] = {"email": email, "code": code}
     save_json(PENDING_FILE, pending)
 
-    try:
-        send_verification_email(email, token)
-        await update.message.reply_text("📧 A confirmation link has been sent to your email. Please check and click it.")
-    except Exception as e:
-        print(f"❌ Email sending failed: {e}")
+    if send_verification_email(email, code):
+        await update.message.reply_text("📧 Verification code sent! Reply with /code <your_code>")
+    else:
         await update.message.reply_text("⚠️ Failed to send email. Please try again or contact admin.")
 
-async def verified(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    verified = load_json(VERIFIED_FILE)
-    if user_id in verified:
-        await update.message.reply_text(f"✅ Already verified! Join here: {GROUP_LINK}")
-    else:
-        await update.message.reply_text("⏳ You're not verified yet. Please check your email.")
+# Code handler
+async def verify_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if not args:
+        await update.message.reply_text("❌ Please provide your code. Example: /code 1a2b3c")
+        return
 
-if __name__ == '__main__':
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("verified", verified))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_email))
-    print("✅ Bot is now polling Telegram...")
+    user_id = str(update.message.from_user.id)
+    pending = load_json(PENDING_FILE)
+    verified = load_json(VERIFIED_FILE)
+
+    if user_id in pending and pending[user_id]["code"] == args[0]:
+        email = pending[user_id]["email"]
+        verified[user_id] = email
+        save_json(VERIFIED_FILE, verified)
+
+        # Append to email log
+        with open(EMAIL_LOG, "a") as f:
+            f.write(f"{update.message.from_user.username or user_id} | {email}\n")
+
+        del pending[user_id]
+        save_json(PENDING_FILE, pending)
+
+        await update.message.reply_text(f"✅ Verified! Join the group: {GROUP_LINK}")
+    else:
+        await update.message.reply_text("❌ Invalid code or expired.")
+
+# Main app
+app = ApplicationBuilder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("code", verify_code))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_email))
+
+if __name__ == "__main__":
     app.run_polling()
