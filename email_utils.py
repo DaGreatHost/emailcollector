@@ -6,8 +6,11 @@ SMTP_PORT = 465
 EMAIL_ADDRESS = os.getenv("SMTP_EMAIL")
 EMAIL_PASSWORD = os.getenv("SMTP_PASS")
 
+# Use the live Railway domain
+RAILWAY_VERIFY_BASE = "https://web-production-86589.up.railway.app/verify?token="
+
 def send_verification_email(to_email, token):
-    confirm_link = f"https://tgreward.shop/verify?token={token}"
+    confirm_link = f"{RAILWAY_VERIFY_BASE}{token}"
     msg = EmailMessage()
     msg['Subject'] = "Confirm your email for VIP Access"
     msg['From'] = EMAIL_ADDRESS
