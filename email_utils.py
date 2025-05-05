@@ -1,23 +1,33 @@
-import smtplib, ssl, os
-from email.message import EmailMessage
+import smtplib
+from email.mime.text import MIMEText
+import os
 
-SMTP_SERVER = "mail.tgreward.shop"
-SMTP_PORT = 465
-EMAIL_ADDRESS = os.getenv("SMTP_EMAIL")
-EMAIL_PASSWORD = os.getenv("SMTP_PASS")
+SMTP_EMAIL = os.getenv("SMTP_EMAIL")
+SMTP_PASS = os.getenv("SMTP_PASS")
 
-# Use the live Railway domain
-RAILWAY_VERIFY_BASE = "https://web-production-86589.up.railway.app/verify?token="
+def send_verification_email(to_email: str, code: str):
+    subject = "🔐 Email Verification Code"
+    body = f"""
+    Hello!
 
-def send_verification_email(to_email, token):
-    confirm_link = f"{RAILWAY_VERIFY_BASE}{token}"
-    msg = EmailMessage()
-    msg['Subject'] = "Confirm your email for VIP Access"
-    msg['From'] = EMAIL_ADDRESS
-    msg['To'] = to_email
-    msg.set_content(f"Hi!\n\nClick this link to confirm your email:\n{confirm_link}\n\nOnce done, go back to the bot and type /verified.")
+    Your verification code is: {code}
 
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=context) as server:
-        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-        server.send_message(msg)
+    Please go back to Telegram and enter this code to verify your email.
+
+    — TG Reward Bot
+    """
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = SMTP_EMAIL
+    msg["To"] = to_email
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+            smtp.starttls()
+            smtp.login(SMTP_EMAIL, SMTP_PASS)
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        print("❌ Email send error:", e)
+        return False
