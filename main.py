@@ -3,6 +3,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 from email_utils import send_verification_email
 import secrets, json, os
 
+print("🚀 Starting bot...")
+
 TOKEN = os.getenv("BOT_TOKEN")
 GROUP_LINK = "https://t.me/+lmIxMokH59czZjg1"
 PENDING_FILE = "pending.json"
@@ -32,7 +34,7 @@ async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = load_json(PENDING_FILE)
     pending[token] = {"email": email, "user_id": user_id, "username": username}
     save_json(PENDING_FILE, pending)
-    
+
     try:
         send_verification_email(email, token)
         await update.message.reply_text("📧 A confirmation link has been sent to your email. Please check and click it.")
@@ -53,4 +55,5 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("verified", verified))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_email))
+    print("✅ Bot is now polling Telegram...")
     app.run_polling()
